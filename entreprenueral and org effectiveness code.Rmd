@@ -1,0 +1,461 @@
+```{r}
+library(readxl)
+library(nnet)
+library(foreign)
+library(ggplot2)
+library(reshape2)
+library (dplyr)
+library(tidyverse)
+```
+
+```{r}
+ent_data<-read_excel('Data_for_analysis.xlsx')
+
+```
+
+```{r}
+#datasets without mising values
+cleaned_ent_data <- ent_data %>%
+  filter(complete.cases(.))
+
+```
+
+```{r}
+colnames(cleaned_ent_data) <- c("Agency_size", "Gender", "Age","Job_Class_level","EL_1","EL_2","EL_3","EL_4","EL_5","EL_6","EL_7","EL_8","EL_9","WP_1","WP_2","WP_3","WP_4","WP_5","WP_6","WO_1","WO_2","WO_3","IP_1","IP_2","IP_3","DD","HB","EFF")
+```
+
+```{r}
+demo<- cleaned_ent_data%>%
+  select(Agency_size,Gender,Age,Job_Class_level)
+
+#View(demo)
+#str(demo)
+```
+
+```{r echo=TRUE}
+#plots
+
+demo%>%
+  ggplot(aes(fct_infreq(Agency_size)))+
+  geom_bar(fill='grey')+
+  theme_bw()+
+  labs(x="Agency size",y="", title="Distribution by Agency size")
+
+
+
+demo%>%
+  ggplot(aes(fct_infreq(Gender)))+
+  geom_bar(fill='grey')+
+  theme_bw()+
+  labs(x="Gender",y="", title="Distribution by Gender")
+
+
+
+demo%>%
+  ggplot(aes(fct_infreq(Age)))+
+  geom_bar(fill='grey')+
+  theme_bw()+
+  labs(x="Age",y="", title="Distribution by Age")
+
+
+demo%>%
+  ggplot(aes(fct_infreq(Job_Class_level)))+
+  geom_bar(fill='grey')+
+  theme_bw()+
+  labs(x="Job Classification Level",y="", title="Distribution by Job Class Level")
+```
+
+```{r}
+# Define the levels and corresponding numeric values
+likert_levels <- c("Strongly disagree", "Disagree", "Neither agree nor disagree", "Agree", "Strongly agree")
+
+# Convert Likert scale responses to factors with defined levels and recode to numeric values
+cleaned_ent_data <- cleaned_ent_data %>%
+  mutate(across(starts_with(c("EL","WP","WO_3","IP")), ~ as.numeric(factor(., levels = likert_levels))))
+
+```
+
+```{r}
+# Define the levels and corresponding numeric values
+likert_levels <- c("To a very small extent", "To a small extent", "Somewhat", "To a large extent", "To a very large extent")
+
+# Convert Likert scale responses to factors with defined levels and recode to numeric values
+cleaned_ent_data <- cleaned_ent_data %>%
+  mutate(across(starts_with("WO_1"), ~ as.numeric(factor(., levels = likert_levels))))
+```
+
+```{r}
+# Define the levels and corresponding numeric values
+likert_levels <- c("Never", "Rarely", "Sometimes", "Often", "Always")
+
+# Convert Likert scale responses to factors with defined levels and recode to numeric values
+cleaned_ent_data <- cleaned_ent_data %>%
+  mutate(across(starts_with("WO_2"), ~ as.numeric(factor(., levels = likert_levels))))
+
+```
+
+```{r}
+# Define the levels and corresponding numeric values
+likert_levels <- c("No","Not sure","Yes")
+
+# Convert Likert scale responses to factors with defined levels and recode to numeric values
+cleaned_ent_data <- cleaned_ent_data %>%
+  mutate(across(starts_with("DD"), ~ as.numeric(factor(., levels = likert_levels))))
+
+
+
+```
+
+```{r}
+# Define the levels and corresponding numeric values
+likert_levels <- c("No","Not sure","Yes")
+
+# Convert Likert scale responses to factors with defined levels and recode to numeric values
+cleaned_ent_data <- cleaned_ent_data %>%
+  mutate(across(starts_with("HB"), ~ as.numeric(factor(., levels = likert_levels))))
+
+```
+
+```{r}
+# Define the levels and corresponding numeric values
+likert_levels <- c("Don't know","Well below average","Below average","Average","Very good","Excellent")
+
+# Convert Likert scale responses to factors with defined levels and recode to numeric values
+cleaned_ent_data <- cleaned_ent_data %>%
+  mutate(across(starts_with("EFF"), ~ as.numeric(factor(., levels = likert_levels))))
+```
+
+```{r}
+research_1<-cleaned_ent_data%>%
+  select(-Agency_size,-Gender,-Age,-Job_Class_level,-WO_1,-WO_2,-WO_3,-DD,-HB,-EL_8)
+```
+
+```{r}
+View(research_1)
+#str(research_1)
+```
+
+```{r}
+library(seminr)
+```
+
+```{r}
+sample_s=50
+use<-sample(1:nrow(research_1), size = sample_s, replace = FALSE)
+research_1_1 <- research_1[use, ]
+research_1_1
+```
+
+```{r}
+#measurement model specification
+
+research_1_simple_mm<-constructs(composite("EL",multi_items("EL_",c(1:7,9))),composite("WP",multi_items("WP_",1:6)),composite("IP",multi_items("IP_",1:3)),composite("EFF",single_item("EFF")))
+```
+
+```{r}
+#structural model specification
+research_1_simple_sm<-relationships(paths(from = c("EL"),to=c("WP","IP","EFF")),paths(from=c("IP","WP"),to=c("EFF")))
+#paths(from=c("WP","IP"),to=c("EFF")))
+```
+
+```{r}
+#Estimation of Model
+research_1_model<-estimate_pls(data=research_1,measurement_model =research_1_simple_mm,structural_model=research_1_simple_sm,inner_weights = path_weighting)
+```
+
+```{r}
+research_1_model$outer_loadings
+
+```
+
+```{r}
+#summaring estimate model
+
+summary_research_1_model<-summary(research_1_model)
+summary_research_1_model
+```
+
+```{r}
+#checting the number of iterations for convergence
+summary_research_1_model$iterations
+```
+
+```{r}
+#inspect loadings
+
+summary_research_1_model$loadings
+```
+
+```{r}
+#inspect the manifest or indicator reliability
+
+summary_research_1_model$loadings^2
+```
+
+```{r}
+
+#inspecting structural path coefficient and R^2 values
+summary_research_1_model$paths
+
+#inspecting the construct realibility metrics
+
+summary_research_1_model$reliability
+
+```
+
+```{r}
+#obs_path<-ent_data_model$path_coef
+#bt_path<-boot_ent_data_model$paths
+#p_values<-sapply(1:ncol(bt_path),
+               # function(i){
+                 # mean(abs(bt_path[,1]) >=
+                #abs(obs_path[i]))
+            #      })
+#names(p_values)<-colnames(obs_path)
+#print(p_values)
+
+
+```
+
+```{r}
+#output result on csv
+write.csv(x=summary_research_1_model$paths,file="paths.csv")
+write.csv(x=summary_research_1_model$reliability,file="reliab.csv")
+```
+
+```{r echo=TRUE}
+#making necessary plot
+#internal consistency croncback alpha, rhoA rhoC
+
+plot(summary_research_1_model$reliability)
+
+```
+
+```{r}
+#Discriminant validity FL
+summary_research_1_model$validity$fl_criteria
+
+```
+
+```{r}
+#using HTMT method of disciminant validity
+
+summary_research_1_model$validity$htmt
+```
+
+```{r}
+summary_research_1_model$validity$vif_items
+```
+
+```{r}
+write.csv(x=summary_research_1_model$validity$htmt,file="htmt.csv")
+
+```
+
+```{r}
+#install.packages("boot")
+#install.packages("parallel")
+```
+
+```{r}
+library(boot)
+library(parallel)
+```
+
+```{r}
+boot_research_1_model<-bootstrap_model(seminr_model=research_1_model,nboot=100,seed=123,cores=parallel::detectCores())
+
+```
+
+```{r}
+
+#boot results
+store_research_1_model<-summary(boot_research_1_model)
+
+#inspect boostrapp
+store_research_1_model$bootstrapped_paths
+
+#inspect boots indicators
+store_research_1_model$bootstrapped_loadings
+
+#inspect boots indicators reliability
+store_research_1_model$bootstrapped_loadings^2
+
+#htmt criterion
+store_research_1_model$bootstrapped_HTMT
+```
+
+```{r}
+#calculate p value 
+pvalues_1 <- round(pt(abs(store_research_1_model$bootstrapped_paths[,"T Stat."]), nrow(research_1)-1, lower.tail = FALSE), 3)
+pvalues_1
+```
+
+```{r}
+# Inspect total indirect effects
+summary_research_1_model$total_indirect_effects
+
+```
+
+```{r}
+#Inspect indirect effects
+indeff_1<-specific_effect_significance(boot_research_1_model,
+ from ="EL",
+ through ="WP",
+ to = "EFF",
+alpha =0.05)
+indeff_1
+
+indeff_2<-specific_effect_significance(boot_research_1_model,
+                           from ="EL",
+                             through ="IP",
+                             to ="EFF",
+                            alpha =0.05)
+indeff_2
+```
+
+```{r}
+write.csv(x=store_research_1_model$bootstrapped_paths,file="summary_model.csv")
+write.csv(x=store_research_1_model$bootstrapped_loadings,file="summary_model1.csv")
+write.csv(x=store_research_1_model$bootstrapped_loadings^2,file="summary_model2.csv")
+write.csv(x=store_research_1_model$bootstrapped_HTMT,file="summary_model3.csv")
+#write.csv(x=indeff_1,file="EFF1.csv")
+#write.csv(x=indeff_2,file="EFF2.csv")
+
+```
+
+```{r echo=FALSE, warning=TRUE}
+plot(research_1_model,title="")
+```
+
+Research Two
+
+```{r}
+research_2<-cleaned_ent_data%>%
+  select(WO_1,WO_2,WO_3,DD,HB,EFF)
+#research_2
+```
+
+```{r}
+#View(research_2)
+#str(research_2)
+```
+
+```{r}
+#measurement model
+research_2_simple_mm<-constructs(composite("WO",multi_items("WO_",1:3)),composite("DD",single_item("DD")),composite("HB",single_item("HB")),composite("EFF",single_item("EFF")))
+```
+
+```{r}
+#structural model specification
+research_2_simple_sm<-relationships(paths(from = c("WO","DD","HB"),to=c("EFF")),paths(from =c("DD","HB"),to=c("WO")))
+```
+
+```{r}
+#Estimation of Model
+research_2_model<-estimate_pls(data=research_2,measurement_model =research_2_simple_mm,structural_model = research_2_simple_sm,inner_weights = path_weighting)
+```
+
+```{r}
+#summaring estimate model
+
+summary_research_2_model<-summary(research_2_model)
+summary_research_2_model
+```
+
+```{r}
+research_2_model$outer_loadings
+```
+
+```{r}
+#inspecting the construct realibility metrics
+
+summary_research_2_model$reliability
+```
+
+```{r}
+write.csv(x=summary_research_2_model$reliability,file="reliab2.csv")
+```
+
+```{r}
+#inspecting the construct realibility metrics
+
+summary_research_2_model$reliability
+```
+
+```{r}
+summary_research_2_model$validity$vif_items
+```
+
+```{r}
+#internal consistency croncback alpha, rhoA rhoC
+
+plot(summary_research_2_model$reliability)
+```
+
+```{r}
+boot_research_2_model<-bootstrap_model(seminr_model=research_2_model,nboot=100,seed=123,cores=parallel::detectCores())
+
+```
+
+```{r}
+#boot results
+store_research_2_model<-summary(boot_research_2_model)
+
+#inspect boostrapp
+store_research_2_model$bootstrapped_paths
+
+#inspect boots indicators
+store_research_2_model$bootstrapped_loadings
+
+#inspect boots indicators reliability
+store_research_2_model$bootstrapped_loadings^2
+
+#htmt criterion
+store_research_2_model$bootstrapped_HTMT
+```
+
+```{r}
+write.csv(x=store_research_2_model$bootstrapped_paths,file="r2paths.csv")
+write.csv(x=store_research_2_model$bootstrapped_loadings,file="r2loads.csv")
+write.csv(x=store_research_2_model$bootstrapped_loadings^2,file="r2loadssqrt.csv")
+write.csv(x=store_research_2_model$bootstrapped_HTMT,file="r2htmt.csv")
+```
+
+```{r}
+#calculate p value 
+pvalues <- round(pt(abs(store_research_2_model$bootstrapped_paths[,"T Stat."]), nrow(research_2)-1, lower.tail = FALSE), 3)
+pvalues
+
+```
+
+```{r}
+# Inspect total indirect effects
+summary_research_2_model$total_indirect_effects
+```
+
+```{r}
+# Inspect indirect effects
+indeff_1<-specific_effect_significance(boot_research_2_model,
+ from ="DD",
+ through ="WO",
+ to = "EFF",
+alpha =0.05)
+indeff_1
+
+indeff_2<-specific_effect_significance(boot_research_2_model,
+                            from ="HB",
+                             through ="WO",
+                             to ="EFF",
+                            alpha =0.05)
+indeff_2
+```
+
+```{r}
+write.csv(x=indeff_1,file="EFF1.csv")
+write.csv(x=indeff_2,file="EFF2.csv")
+```
+
+```{r echo=TRUE}
+plot(research_2_model,title="")
+```
